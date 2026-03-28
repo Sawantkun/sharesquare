@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
-import '../data/mock_data.dart';
+import '../core/theme/app_colors.dart';
 
 enum AuthStatus { unknown, authenticated, unauthenticated }
 
 class AuthProvider extends ChangeNotifier {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+
   AuthStatus _status = AuthStatus.unknown;
   UserModel? _currentUser;
   bool _isLoading = false;
   String? _errorMessage;
-
-  static const _loggedInKey = 'is_logged_in';
 
   AuthStatus get status => _status;
   UserModel? get currentUser => _currentUser;
@@ -20,17 +22,25 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => _status == AuthStatus.authenticated;
 
   AuthProvider() {
-    _checkAuth();
+    _auth.authStateChanges().listen(_handleAuthStateChange);
   }
 
-  Future<void> _checkAuth() async {
-    await Future.delayed(const Duration(milliseconds: 1500)); // Splash delay
-    final prefs = await SharedPreferences.getInstance();
-    final loggedIn = prefs.getBool(_loggedInKey) ?? false;
-    if (loggedIn) {
-      _currentUser = MockData.currentUser;
-      _status = AuthStatus.authenticated;
-    } else {
+  Future<void> _handleAuthStateChange(User? user) async {
+    if (user == null) {
+      _currentUser = null;
+      _status = AuthStatus.unauthenticated;
+      notifyListeners();
+      return;
+    }
+    try {
+      final doc = await _db.collection('users').doc(user.uid).get();
+      if (doc.exists) {
+        _currentUser = UserModel.fromJson(doc.data()!);
+        _status = AuthStatus.authenticated;
+      } else {
+        _status = AuthStatus.unauthenticated;
+      }
+    } catch (_) {
       _status = AuthStatus.unauthenticated;
     }
     notifyListeners();
@@ -40,99 +50,79 @@ class AuthProvider extends ChangeNotifier {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
-
-    await Future.delayed(const Duration(milliseconds: 1200)); // Simulate API
-
-    // Mock validation
-    if (email.isEmpty || password.isEmpty) {
-      _errorMessage = 'Please fill in all fields';
+    try {
+      final cred = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final doc = await _db.collection('users').doc(cred.user!.uid).get();
+      if (doc.exists) {
+        _currentUser = UserModel.fromJson(doc.data()!);
+        _status = AuthStatus.authenticated;
+      }
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _errorMessage = e.message ?? 'Login failed';
       _isLoading = false;
       notifyListeners();
       return false;
     }
-
-    if (password.length < 6) {
-      _errorMessage = 'Password must be at least 6 characters';
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
-
-    // Accept any valid-looking credentials
-    _currentUser = MockData.currentUser;
-    _status = AuthStatus.authenticated;
-    _isLoading = false;
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_loggedInKey, true);
-
-    notifyListeners();
-    return true;
   }
 
   Future<bool> signUp(String name, String email, String password) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
-
-    await Future.delayed(const Duration(milliseconds: 1400));
-
-    if (name.isEmpty || email.isEmpty || password.isEmpty) {
-      _errorMessage = 'Please fill in all fields';
+    try {
+      final cred = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      await cred.user!.updateDisplayName(name);
+      final user = UserModel(
+        id: cred.user!.uid,
+        name: name,
+        email: email,
+        color: AppColors.primary,
+        createdAt: DateTime.now(),
+      );
+      await _db.collection('users').doc(user.id).set(user.toJson());
+      _currentUser = user;
+      _status = AuthStatus.authenticated;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _errorMessage = e.message ?? 'Signup failed';
       _isLoading = false;
       notifyListeners();
       return false;
     }
-
-    if (!email.contains('@')) {
-      _errorMessage = 'Please enter a valid email';
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
-
-    if (password.length < 6) {
-      _errorMessage = 'Password must be at least 6 characters';
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
-
-    _currentUser = MockData.currentUser.copyWith(name: name, email: email);
-    _status = AuthStatus.authenticated;
-    _isLoading = false;
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_loggedInKey, true);
-
-    notifyListeners();
-    return true;
   }
 
   Future<bool> sendPasswordReset(String email) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
-
-    await Future.delayed(const Duration(milliseconds: 1000));
-
-    if (!email.contains('@')) {
-      _errorMessage = 'Please enter a valid email';
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _errorMessage = e.message ?? 'Password reset failed';
       _isLoading = false;
       notifyListeners();
       return false;
     }
-
-    _isLoading = false;
-    notifyListeners();
-    return true;
   }
 
   Future<void> signOut() async {
+    await _auth.signOut();
     _currentUser = null;
     _status = AuthStatus.unauthenticated;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_loggedInKey);
     notifyListeners();
   }
 
