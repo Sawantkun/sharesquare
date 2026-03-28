@@ -69,4 +69,35 @@ class BillModel {
       splitAmongIds: splitAmongIds ?? this.splitAmongIds,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'amount': amount,
+    'dueDate': dueDate.toIso8601String(),
+    'isPaid': isPaid,
+    'category': category.name,
+    'householdId': householdId,
+    'isRecurring': isRecurring,
+    'splitAmongIds': splitAmongIds,
+  };
+
+  factory BillModel.fromJson(Map<String, dynamic> json) => BillModel(
+    id: (json['id'] as String?) ?? '',
+    title: (json['title'] as String?) ?? '',
+    amount: (json['amount'] as num?)?.toDouble() ?? 0,
+    dueDate: json['dueDate'] != null
+        ? DateTime.tryParse(json['dueDate'] as String) ?? DateTime.now()
+        : DateTime.now(),
+    isPaid: json['isPaid'] as bool? ?? false,
+    category: BillCategory.values.firstWhere(
+      (c) => c.name == json['category'],
+      orElse: () => BillCategory.other,
+    ),
+    householdId: (json['householdId'] as String?) ?? '',
+    isRecurring: json['isRecurring'] as bool? ?? false,
+    splitAmongIds: json['splitAmongIds'] != null
+        ? List<String>.from(json['splitAmongIds'] as List)
+        : null,
+  );
 }

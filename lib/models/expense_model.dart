@@ -84,4 +84,35 @@ class ExpenseModel {
       householdId: householdId ?? this.householdId,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'amount': amount,
+    'paidById': paidById,
+    'splitAmongIds': splitAmongIds,
+    'date': date.toIso8601String(),
+    'category': category.name,
+    'isSettled': isSettled,
+    'note': note,
+    'householdId': householdId,
+  };
+
+  factory ExpenseModel.fromJson(Map<String, dynamic> json) => ExpenseModel(
+    id: (json['id'] as String?) ?? '',
+    title: (json['title'] as String?) ?? '',
+    amount: (json['amount'] as num?)?.toDouble() ?? 0,
+    paidById: (json['paidById'] as String?) ?? '',
+    splitAmongIds: List<String>.from(json['splitAmongIds'] ?? []),
+    date: json['date'] != null
+        ? DateTime.tryParse(json['date'] as String) ?? DateTime.now()
+        : DateTime.now(),
+    category: ExpenseCategory.values.firstWhere(
+      (e) => e.name == json['category'],
+      orElse: () => ExpenseCategory.other,
+    ),
+    isSettled: json['isSettled'] as bool? ?? false,
+    note: json['note'] as String?,
+    householdId: (json['householdId'] as String?) ?? '',
+  );
 }

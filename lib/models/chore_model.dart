@@ -63,4 +63,37 @@ class ChoreModel {
       createdAt: createdAt ?? this.createdAt,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'description': description,
+    'assignedToId': assignedToId,
+    'dueDate': dueDate.toIso8601String(),
+    'isCompleted': isCompleted,
+    'frequency': frequency.name,
+    'emoji': emoji,
+    'householdId': householdId,
+    'createdAt': createdAt.toIso8601String(),
+  };
+
+  factory ChoreModel.fromJson(Map<String, dynamic> json) => ChoreModel(
+    id: (json['id'] as String?) ?? '',
+    title: (json['title'] as String?) ?? '',
+    description: (json['description'] as String?) ?? '',
+    assignedToId: (json['assignedToId'] as String?) ?? '',
+    dueDate: json['dueDate'] != null
+        ? DateTime.tryParse(json['dueDate'] as String) ?? DateTime.now()
+        : DateTime.now(),
+    isCompleted: json['isCompleted'] as bool? ?? false,
+    frequency: ChoreFrequency.values.firstWhere(
+      (f) => f.name == json['frequency'],
+      orElse: () => ChoreFrequency.once,
+    ),
+    emoji: json['emoji'] as String?,
+    householdId: (json['householdId'] as String?) ?? '',
+    createdAt: json['createdAt'] != null
+        ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+        : DateTime.now(),
+  );
 }

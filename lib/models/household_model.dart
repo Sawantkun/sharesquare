@@ -42,4 +42,28 @@ class HouseholdModel {
       createdAt: createdAt ?? this.createdAt,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'address': address,
+    'joinCode': joinCode,
+    'memberIds': memberIds,
+    'adminId': adminId,
+    'imageUrl': imageUrl,
+    'createdAt': createdAt.toIso8601String(),
+  };
+
+  factory HouseholdModel.fromJson(Map<String, dynamic> json) => HouseholdModel(
+    id: (json['id'] as String?) ?? '',
+    name: (json['name'] as String?) ?? '',
+    address: (json['address'] as String?) ?? '',
+    joinCode: (json['joinCode'] as String?) ?? '',
+    memberIds: List<String>.from(json['memberIds'] ?? []),
+    adminId: (json['adminId'] as String?) ?? '',
+    imageUrl: json['imageUrl'] as String?,
+    createdAt: json['createdAt'] != null
+        ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+        : DateTime.now(),
+  );
 }

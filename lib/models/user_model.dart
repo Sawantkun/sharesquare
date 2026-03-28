@@ -57,12 +57,14 @@ class UserModel {
   };
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
-    id: json['id'],
-    name: json['name'],
-    email: json['email'],
-    avatarUrl: json['avatarUrl'],
-    color: Color(json['color'] ?? AppColors.primary.toARGB32()),
-    householdId: json['householdId'],
-    createdAt: DateTime.parse(json['createdAt']),
+    id: (json['id'] as String?) ?? '',
+    name: (json['name'] as String?) ?? '',
+    email: (json['email'] as String?) ?? '',
+    avatarUrl: json['avatarUrl'] as String?,
+    color: Color((json['color'] as int?) ?? AppColors.primary.toARGB32()),
+    householdId: json['householdId'] as String?,
+    createdAt: json['createdAt'] != null
+        ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+        : DateTime.now(),
   );
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -12,10 +13,32 @@ import 'providers/expense_provider.dart';
 import 'providers/chore_provider.dart';
 import 'providers/chat_provider.dart';
 
-void main() async {
+void main() {
+  runZonedGuarded(_main, (error, stack) {
+    debugPrint('=== UNCAUGHT ZONE ERROR ===\n$error\n$stack');
+  });
+}
+
+Future<void> _main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  String? initError;
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    initError = 'dotenv: $e';
+  }
+  if (initError == null) {
+    try {
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    } catch (e) {
+      initError = 'Firebase: $e';
+    }
+  }
+  if (initError != null) {
+    runApp(_ErrorApp(initError));
+    return;
+  }
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -32,12 +55,60 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => HouseholdProvider()),
-        ChangeNotifierProvider(create: (_) => ExpenseProvider()),
-        ChangeNotifierProvider(create: (_) => ChoreProvider()),
-        ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, HouseholdProvider>(
+          create: (_) => HouseholdProvider(),
+          update: (_, auth, household) {
+            household!.syncFromAuth(auth.currentUser?.householdId);
+            return household;
+          },
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, ExpenseProvider>(
+          create: (_) => ExpenseProvider(),
+          update: (_, auth, expense) {
+            expense!.syncFromAuth(auth.currentUser?.householdId);
+            return expense;
+          },
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, ChoreProvider>(
+          create: (_) => ChoreProvider(),
+          update: (_, auth, chore) {
+            chore!.syncFromAuth(auth.currentUser?.householdId);
+            return chore;
+          },
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, ChatProvider>(
+          create: (_) => ChatProvider(),
+          update: (_, auth, chat) {
+            chat!.syncFromAuth(auth.currentUser?.householdId);
+            return chat;
+          },
+        ),
       ],
       child: const ShareSquareApp(),
     ),
   );
+}
+
+class _ErrorApp extends StatelessWidget {
+  final String message;
+  const _ErrorApp(this.message);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        backgroundColor: Colors.red.shade50,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: SelectableText(
+              'Startup error:\n\n$message',
+              style: const TextStyle(fontSize: 14, color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

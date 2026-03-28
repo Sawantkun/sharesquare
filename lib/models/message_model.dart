@@ -20,6 +20,18 @@ class PollOption {
       voterIds: voterIds ?? this.voterIds,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'text': text,
+    'voterIds': voterIds,
+  };
+
+  factory PollOption.fromJson(Map<String, dynamic> json) => PollOption(
+    id: (json['id'] as String?) ?? '',
+    text: (json['text'] as String?) ?? '',
+    voterIds: List<String>.from(json['voterIds'] ?? []),
+  );
 }
 
 class MessageModel {
@@ -68,4 +80,37 @@ class MessageModel {
       isRead: isRead ?? this.isRead,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'senderId': senderId,
+    'householdId': householdId,
+    'content': content,
+    'timestamp': timestamp.toIso8601String(),
+    'type': type.name,
+    'imageUrl': imageUrl,
+    'pollOptions': pollOptions?.map((o) => o.toJson()).toList(),
+    'pollQuestion': pollQuestion,
+    'isRead': isRead,
+  };
+
+  factory MessageModel.fromJson(Map<String, dynamic> json) => MessageModel(
+    id: (json['id'] as String?) ?? '',
+    senderId: (json['senderId'] as String?) ?? '',
+    householdId: (json['householdId'] as String?) ?? '',
+    content: (json['content'] as String?) ?? '',
+    timestamp: json['timestamp'] != null
+        ? DateTime.tryParse(json['timestamp'] as String) ?? DateTime.now()
+        : DateTime.now(),
+    type: MessageType.values.firstWhere(
+      (t) => t.name == json['type'],
+      orElse: () => MessageType.text,
+    ),
+    imageUrl: json['imageUrl'] as String?,
+    pollOptions: (json['pollOptions'] as List<dynamic>?)
+        ?.map((o) => PollOption.fromJson(o as Map<String, dynamic>))
+        .toList(),
+    pollQuestion: json['pollQuestion'] as String?,
+    isRead: json['isRead'] as bool? ?? false,
+  );
 }
