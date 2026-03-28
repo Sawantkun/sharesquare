@@ -3,6 +3,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/chore_provider.dart';
+import '../../providers/expense_provider.dart';
+import '../../providers/household_provider.dart';
 import '../home/home_screen.dart';
 import '../expenses/expenses_screen.dart';
 import '../chores/chores_screen.dart';
@@ -32,6 +35,12 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _current = widget.initialIndex;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<HouseholdProvider>().loadHousehold();
+      context.read<ExpenseProvider>().loadExpenses();
+      context.read<ChoreProvider>().loadChores();
+      context.read<ChatProvider>().loadMessages();
+    });
   }
 
   void _go(int i) {
